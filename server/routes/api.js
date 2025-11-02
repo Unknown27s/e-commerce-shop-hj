@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { body, validationResult } = require('express-validator');
+const multer = require('multer');
 
 const SECRET_KEY = process.env.JWT_SECRET || 'change-this-in-prod';
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'change-refresh-secret';
@@ -10,6 +11,18 @@ const REFRESH_SECRET = process.env.REFRESH_SECRET || 'change-refresh-secret';
 // Simple in-memory stores for demo — replace with DB (Mongo/Postgres) in production
 const users = new Map(); // key: email -> { id, email, passwordHash, addresses: [] }
 const refreshTokens = new Map(); // key: refreshToken -> email
+const products = new Map(); // key: id -> { id, name, description, price, image, category, stock, unit }
+
+// Multer setup for file uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, '../src/images');
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage: storage });
 
 // helpers
 function generateAccessToken(payload) {
@@ -31,7 +44,8 @@ router.post('/auth/register',
         if (users.has(email)) return res.status(409).json({ message: 'User already exists' });
 
         const passwordHash = await bcrypt.hash(password, 10);
-        const user = { id: `u_${Date.now()}`, email, passwordHash, addresses: [] };
+        const isAdmin = users.size === 0;
+        const user = { id: `u_${Date.now()}`, email, passwordHash, addresses: [], role: isAdmin ? 'admin' : 'user' };
         users.set(email, user);
 
         res.status(201).json({ message: 'Registered' });
@@ -50,7 +64,7 @@ router.post('/auth/login',
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
 
-        const accessToken = generateAccessToken({ email: user.email, userId: user.id });
+        const accessToken = generateAccessToken({ email: user.email, userId: user.id, role: user.role });
         const refreshToken = generateRefreshToken({ email: user.email, userId: user.id });
         refreshTokens.set(refreshToken, user.email);
 
@@ -65,7 +79,7 @@ router.post('/auth/refresh', async (req, res) => {
 
     try {
         const payload = jwt.verify(refreshToken, REFRESH_SECRET);
-        const accessToken = generateAccessToken({ email: payload.email, userId: payload.userId });
+        const accessToken = generateAccessToken({ email: payload.email, userId: payload.userId, role: payload.role });
         res.json({ accessToken, expiresIn: 900 });
     } catch (err) {
         refreshTokens.delete(refreshToken);
@@ -92,6 +106,47 @@ function authenticateToken(req, res, next) {
         next();
     });
 }
+
+function isAdmin(req, res, next) {
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+    next();
+}
+
+// Product endpoints
+router.get('/products', (req, res) => {
+    res.json(Array.from(products.values()));
+});
+
+router.post('/products', authenticateToken, isAdmin, upload.single('image'), (
+    req, res) => {
+    const { name, description, price, category, stock, unit } = req.body;
+    const image = req.file ? `/images/${req.file.filename}` : null;
+    const product = { id: `p_${Date.now()}`, name, description, price, image, category, stock, unit };
+    products.set(product.id, product);
+    res.status(201).json(product);
+});
+
+router.put('/products/:id', authenticateToken, isAdmin, upload.single('image'), (
+    req, res) => {
+    const { id } = req.params;
+    const { name, description, price, category, stock, unit } = req.body;
+    const image = req.file ? `/images/${req.file.filename}` : req.body.image;
+
+    if (!products.has(id)) return res.status(404).json({ message: 'Product not found' });
+
+    const product = { ...products.get(id), name, description, price, image, category, stock, unit };
+    products.set(id, product);
+    res.json(product);
+});
+
+router.delete('/products/:id', authenticateToken, isAdmin, (req, res) => {
+    const { id } = req.params;
+    if (!products.has(id)) return res.status(404).json({ message: 'Product not found' });
+
+    products.delete(id);
+    res.sendStatus(204);
+});
+
 
 // Address endpoints (CRUD)
 router.get('/users/me/addresses', authenticateToken, (req, res) => {

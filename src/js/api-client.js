@@ -1,51 +1,75 @@
-const apiBaseUrl = 'http://localhost:3000/api'; // Update with your API base URL
-
-async function fetchProducts() {
-    try {
-        const response = await fetch(`${apiBaseUrl}/products`);
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        const products = await response.json();
-        return products;
-    } catch (error) {
-        console.error('Error fetching products:', error);
-        throw error;
+class ApiClient {
+    constructor(baseUrl = 'http://localhost:3000/api') {
+        this.baseUrl = baseUrl;
     }
-}
 
-async function fetchProductById(productId) {
-    try {
-        const response = await fetch(`${apiBaseUrl}/products/${productId}`);
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
+    async request(endpoint, options = {}) {
+        const token = localStorage.getItem('accessToken');
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+            ...options.headers
+        };
+
+        try {
+            const response = await fetch(`${this.baseUrl}${endpoint}`, {
+                ...options,
+                headers
+            });
+
+            if (!response.ok) throw new Error('API request failed');
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
         }
-        const product = await response.json();
-        return product;
-    } catch (error) {
-        console.error('Error fetching product:', error);
-        throw error;
     }
-}
 
-async function createOrder(orderData) {
-    try {
-        const response = await fetch(`${apiBaseUrl}/orders`, {
+    // Products
+    async getProducts() {
+        return this.request('/products');
+    }
+
+    async getProduct(id) {
+        return this.request(`/products/${id}`);
+    }
+
+    async createProduct(data) {
+        return this.request('/products', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(orderData),
+            body: JSON.stringify(data)
         });
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        const order = await response.json();
-        return order;
-    } catch (error) {
-        console.error('Error creating order:', error);
-        throw error;
+    }
+
+    async updateProduct(id, data) {
+        return this.request(`/products/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async deleteProduct(id) {
+        return this.request(`/products/${id}`, {
+            method: 'DELETE'
+        });
+    }
+
+    // Cart
+    async getCart() {
+        return this.request('/cart');
+    }
+
+    async addToCart(productId, quantity) {
+        return this.request('/cart/add', {
+            method: 'POST',
+            body: JSON.stringify({ productId, quantity })
+        });
+    }
+
+    // Categories
+    async getCategories() {
+        return this.request('/categories');
     }
 }
 
-export { fetchProducts, fetchProductById, createOrder };
+export default new ApiClient();

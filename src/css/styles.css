@@ -87,7 +87,7 @@ textarea {
 
     header,
     footer {
-        padding: 15px 0;
+        padding: px 0;
     }
 
     .btn {
@@ -97,7 +97,7 @@ textarea {
 
 /* Responsive navigation */
 .navbar {
-    padding: 1rem;
+    padding: 10rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -399,5 +399,55 @@ textarea {
     .menu-item {
         width: 100%;
         text-align: center;
+    }
+}
+
+/* Admin Dashboard Styles */
+.admin-dashboard #sidebar-wrapper {
+    min-height: 100vh;
+    margin-left: -15rem;
+    transition: margin .25s ease-out;
+}
+
+.admin-dashboard #sidebar-wrapper .sidebar-heading {
+    padding: 0.875rem 1.25rem;
+    font-size: 1.2rem;
+}
+
+.admin-dashboard #page-content-wrapper {
+    min-width: 100vw;
+}
+
+.admin-dashboard #wrapper.toggled #sidebar-wrapper {
+    margin-left: 0;
+}
+
+.product-thumb {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.admin-section {
+    display: none;
+}
+
+.admin-section.active {
+    display: block;
+}
+
+@media (min-width: 768px) {
+    .admin-dashboard #sidebar-wrapper {
+        margin-left: 0;
+    }
+
+    .admin-dashboard #page-content-wrapper {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .admin-dashboard #wrapper.toggled #sidebar-wrapper {
+        margin-left: -15rem;
     }
 }
